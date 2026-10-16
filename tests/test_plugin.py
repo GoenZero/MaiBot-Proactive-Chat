@@ -55,8 +55,8 @@ def inbound(user: str = "+818012345678", platform: str = "imessage", group: bool
     return {"message": {"platform": platform, "session_id": session, "message_info": info}}
 
 
-def outbound(session: str = "s-target", sent: bool = True) -> dict:
-    return {"message": {"platform": "imessage", "session_id": session, "message_info": {}}, "sent": sent}
+def outbound(session: str = "s-target", sent: bool = True, stored: bool = True) -> dict:
+    return {"message": {"platform": "imessage", "session_id": session, "message_info": {}}, "sent": sent, "storage_message": stored}
 
 
 def run(coro):
@@ -177,6 +177,7 @@ def test_status_and_config_change(tmp_path, monkeypatch):
         await plugin.handle_status(stream_id="s-target")
         sent = [p for name, p in host.calls if name == "cap.call" and p["capability"] == "send.text"]
         assert "秘密备注" in sent[-1]["args"]["text"]
+        assert sent[-1]["args"]["storage_message"] is False  # 状态不进聊天记录和记忆
 
         # 改频率：立即生效，不丢状态
         data = copy.deepcopy(CONFIG)
@@ -231,6 +232,7 @@ def test_disabled_or_unsent_does_nothing(tmp_path):
         assert await plugin.check_once(at(12)) is None
         before = plugin._scheduler.state.last_outbound_at
         await plugin.on_outbound(**outbound(sent=False))
+        await plugin.on_outbound(**outbound(stored=False))  # 命令回复不算 AI 说话
         assert plugin._scheduler.state.last_outbound_at == before
         await plugin.on_unload()
 

@@ -200,6 +200,9 @@ class ProactiveChatPlugin(MaiBotPlugin):
         scheduler = self._scheduler
         if scheduler is None or not kwargs.get("sent") or not self._is_target_outbound(kwargs.get("message")):
             return None
+        # 不存进聊天记录的是命令回复、系统提示，不是 AI 说的话（AI 的回复都会存）
+        if kwargs.get("storage_message") is False:
+            return None
         scheduler.note_outbound(time.time())
         return None
 
@@ -344,7 +347,9 @@ class ProactiveChatPlugin(MaiBotPlugin):
     @Command("proactive_status", description="查看主动聊天插件的状态", pattern=r"^/proactive_status$")
     async def handle_status(self, stream_id: str = "", **kwargs: Any) -> tuple:
         del kwargs
-        await self.ctx.send.text(self.status_text(time.time(), show_notes=self._schedule_allowed(stream_id)), stream_id)
+        # 不存进聊天记录：否则 MaiBot 重启后恢复上下文、生成聊天回想和长期记忆时，会把状态当成 AI 说过的话
+        text = self.status_text(time.time(), show_notes=self._schedule_allowed(stream_id))
+        await self.ctx.send.text(text, stream_id, storage_message=False)
         return True, "状态已显示", True
 
     def status_text(self, now: float, *, show_notes: bool) -> str:
